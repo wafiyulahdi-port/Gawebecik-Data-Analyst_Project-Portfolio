@@ -20,10 +20,10 @@ Their outputs feed sensitive dashboards in Metabase, Looker, and Tableau, all of
 
 ## Other Important but Restricted Operational Files
 There are also several mid-level operational analytics tasks that are not included for confidentiality reasons, such as:
-1. Customer chat and call analysis
-2. Customer address correction workflows
-3. Attendance record improvements
-4. Order-related validation processes, including:
+* Customer chat and call analysis
+* Customer address correction workflows
+* Attendance record improvements
+* Order-related validation processes, including:
    * Duplicate order checking
    * Duplicate customer checking
    * Duplicate invoice checking
