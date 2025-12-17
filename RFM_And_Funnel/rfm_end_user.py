@@ -10,7 +10,7 @@ import os
 from sqlalchemy import text
 
 # Setup logging
-log_directory = '/root/rfm/logs'
+log_directory = 'dir'
 os.makedirs(log_directory, exist_ok=True)
 logging.basicConfig(
     filename=os.path.join(log_directory, 'errors.log'),
@@ -35,23 +35,7 @@ def connect_to_database(host, user, password, database, port):
 # Fungsi untuk menarik data dari database
 def fetch_data(cursor):
     query = """
-    SELECT 
-        sales.customer_id AS customer_id,
-        sales.last_shipment_check AS last_shipment_date,
-        sale_items.sale_date AS invoice_date,
-        sale_items.total_price AS product_sales_total,
-        sale_items.product_name,
-        sale_items.product_id,
-        sale_items.product_quantity AS product_qty,
-        customers.province_id,
-        sales.sale_status AS sale_status
-    FROM sales
-    LEFT JOIN customers ON sales.customer_id = customers.id
-    LEFT JOIN provinces ON customers.province_id = provinces.id
-    LEFT JOIN sale_items ON sales.id = sale_items.sale_id
-    WHERE sales.channel_id IN (1, 2, 3, 999)
-    AND customers.type = 1
-    AND sale_items.product_name IN ('BIO INSULEAF 150 ML', 'BIO INSULEAF', 'ETAWALIN', 'ETAWAKU', 'NUTRIFLAKES', 'ZYMUNO 130 ML', 'ZYMUNO')
+    quesy
     """
     cursor.execute(query)
     result = cursor.fetchall()
@@ -85,8 +69,8 @@ def calculate_rfm(df):
     df['last_shipment_date'] = pd.to_datetime(df['last_shipment_date'])
 
     df['given_product_name'] = df['product_name']
-    df.loc[df['given_product_name'].str.contains('ZYMUNO', case=False, na=False), 'given_product_name'] = 'ZYMUNO'
-    df.loc[df['given_product_name'].str.contains('BIO INSULEAF', case=False, na=False), 'given_product_name'] = 'BIO INSULEAF'
+    df.loc[df['given_product_name'].str.contains('PRODUCT', case=False, na=False), 'given_product_name'] = 'PRODUCT'
+    df.loc[df['given_product_name'].str.contains('PRODUCT', case=False, na=False), 'given_product_name'] = 'PRODUCT'
 
     recency = df.groupby(['customer_id', 'given_product_name'])['last_shipment_date'].max().reset_index()
     recency['recency'] = (today - recency['last_shipment_date']).dt.days
@@ -134,7 +118,7 @@ def cluster_and_classify(rfm, product_name, n_clusters):
         elif median < 2:
             return 'Potential Loyal'
         else:
-            return 'Unknown'
+            return 'At Risk'
     
     cluster_summary['cluster_name'] = cluster_summary['frequency_median'].apply(classify_cluster)
     cluster_mapping = cluster_summary.set_index('cluster')['cluster_name'].to_dict()
@@ -145,28 +129,28 @@ def cluster_and_classify(rfm, product_name, n_clusters):
     return rfm_product
 
 def calculate_funnel(df, product_name):
-    if product_name == 'BIO INSULEAF':
-        df_bio = df[df['given_product_name'] == 'BIO INSULEAF']
-        result_bio = df_bio[df_bio.groupby(['customer_id', 'given_product_name'])['last_shipment_date']
-                        .transform('max') == df_bio['last_shipment_date']]
+    if product_name == 'PRODUCT':
+        dfproduct = df[df['given_product_name'] == 'PRODUCT']
+        resultproduct = dfproduct[dfproduct.groupby(['customer_id', 'given_product_name'])['last_shipment_date']
+                        .transform('max') == dfproduct['last_shipment_date']]
         # Pilih kolom yang diinginkan
-        result_bio = result_bio[['customer_id', 'last_shipment_date', 'product_name', 'product_qty']].drop_duplicates()
-        result_bio['product_qty_bio'] = result_bio['product_qty'].where(result_bio['product_name'] == 'BIO INSULEAF')
-        result_bio['product_name_bio'] = result_bio['product_name'].where(result_bio['product_name'] == 'BIO INSULEAF')
+        resultproduct = resultproduct[['customer_id', 'last_shipment_date', 'product_name', 'product_qty']].drop_duplicates()
+        resultproduct['product_qtyproduct'] = resultproduct['product_qty'].where(resultproduct['product_name'] == 'PRODUCT')
+        resultproduct['product_nameproduct'] = resultproduct['product_name'].where(resultproduct['product_name'] == 'PRODUCT')
         
-        result_bio['product_qty_bio_150ml'] = result_bio['product_qty'].where(result_bio['product_name'] == 'BIO INSULEAF 150 ML')
-        result_bio['product_name_bio_150ml'] = result_bio['product_name'].where(result_bio['product_name'] == 'BIO INSULEAF 150 ML')
+        resultproduct['product_qtyproduct_150ml'] = resultproduct['product_qty'].where(resultproduct['product_name'] == 'PRODUCT')
+        resultproduct['product_nameproduct_150ml'] = resultproduct['product_name'].where(resultproduct['product_name'] == 'PRODUCT')
         
         # Grupkan berdasarkan 'customer_id' dan 'last_shipment_date'
-        result_bio = result_bio.groupby(['customer_id', 'last_shipment_date']).agg({
-            'product_qty_bio': 'max',  # Agregasi numerik
-            'product_name_bio': 'first',  # Agregasi teks, bisa juga menggunakan 'max' untuk mendapatkan nilai teks
-            'product_qty_bio_150ml': 'max',
-            'product_name_bio_150ml': 'first'
+        resultproduct = resultproduct.groupby(['customer_id', 'last_shipment_date']).agg({
+            'product_qtyproduct': 'max',  # Agregasi numerik
+            'product_nameproduct': 'first',  # Agregasi teks, bisa juga menggunakan 'max' untuk mendapatkan nilai teks
+            'product_qtyproduct_150ml': 'max',
+            'product_nameproduct_150ml': 'first'
         }).reset_index()
         
         lama_habis = 21
-        lama_habis_bio150ml = 12
+        lama_habisproduct150ml = 12
         # today = datetime.strptime(end_date, '%Y-%m-%d')
         today = datetime.today()
         three_months_ago = today - pd.DateOffset(months=3)
@@ -176,12 +160,12 @@ def calculate_funnel(df, product_name):
             shipment_plus_qty = timedelta(days=0)  # Inisialisasi dengan timedelta nol
         
             # Cek jika produk bio ada
-            if pd.notna(row['product_name_bio']):
-                shipment_plus_qty += timedelta(days=row['product_qty_bio'] * lama_habis)
+            if pd.notna(row['product_name']):
+                shipment_plus_qty += timedelta(days=row['product_qtyproduct'] * lama_habis)
         
             # Cek jika produk bio150ml ada
-            if pd.notna(row['product_name_bio_150ml']):
-                shipment_plus_qty += timedelta(days=row['product_qty_bio_150ml'] * lama_habis_bio150ml)
+            if pd.notna(row['product_name']):
+                shipment_plus_qty += timedelta(days=row['product_qtyproduct_150ml'] * lama_habisproduct150ml)
         
             # Hitung tanggal pengiriman plus kuantitas
             final_shipment_date = row['last_shipment_date'] + shipment_plus_qty
@@ -198,30 +182,30 @@ def calculate_funnel(df, product_name):
             return pd.Series([funnel_status])
         
         # Terapkan fungsi ke DataFrame
-        result_bio[['funnel']] = result_bio.apply(determine_funnel, axis=1)
-        return result_bio
-    elif product_name == 'ZYMUNO':
-        df_zymuno = df[df['given_product_name'] == 'ZYMUNO']
-        result_zymuno = df_zymuno[df_zymuno.groupby(['customer_id', 'given_product_name'])['last_shipment_date']
-                        .transform('max') == df_zymuno['last_shipment_date']]
+        resultproduct[['funnel']] = resultproduct.apply(determine_funnel, axis=1)
+        return resultproduct
+    elif product_name == 'PRODUCT':
+        df_product = df[df['given_product_name'] == 'PRODUCT']
+        result_product = df_product[df_product.groupby(['customer_id', 'given_product_name'])['last_shipment_date']
+                        .transform('max') == df_product['last_shipment_date']]
         # Pilih kolom yang diinginkan
-        result_zymuno = result_zymuno[['customer_id', 'last_shipment_date', 'product_name', 'product_qty']].drop_duplicates()
-        result_zymuno['product_qty_zymuno'] = result_zymuno['product_qty'].where(result_zymuno['product_name'] == 'ZYMUNO')
-        result_zymuno['product_name_zymuno'] = result_zymuno['product_name'].where(result_zymuno['product_name'] == 'ZYMUNO')
+        result_product = result_product[['customer_id', 'last_shipment_date', 'product_name', 'product_qty']].drop_duplicates()
+        result_product['product_qty_product'] = result_product['product_qty'].where(result_product['product_name'] == 'PRODUCT')
+        result_product['product_name_product'] = result_product['product_name'].where(result_product['product_name'] == 'PRODUCT')
         
-        result_zymuno['product_qty_zymuno_130ml'] = result_zymuno['product_qty'].where(result_zymuno['product_name'] == 'ZYMUNO 130 ML')
-        result_zymuno['product_name_zymuno_130ml'] = result_zymuno['product_name'].where(result_zymuno['product_name'] == 'ZYMUNO 130 ML')
+        result_product['product_qty_product_130ml'] = result_product['product_qty'].where(result_product['product_name'] == 'PRODUCT')
+        result_product['product_name_product_130ml'] = result_product['product_name'].where(result_product['product_name'] == 'PRODUCT')
         
         # Grupkan berdasarkan 'customer_id' dan 'last_shipment_date'
-        result_zymuno = result_zymuno.groupby(['customer_id', 'last_shipment_date']).agg({
-            'product_qty_zymuno': 'max',  # Agregasi numerik
-            'product_name_zymuno': 'first',  # Agregasi teks, bisa juga menggunakan 'max' untuk mendapatkan nilai teks
-            'product_qty_zymuno_130ml': 'max',
-            'product_name_zymuno_130ml': 'first'
+        result_product = result_product.groupby(['customer_id', 'last_shipment_date']).agg({
+            'product_qty_product': 'max',  # Agregasi numerik
+            'product_name_product': 'first',  # Agregasi teks, bisa juga menggunakan 'max' untuk mendapatkan nilai teks
+            'product_qty_product_130ml': 'max',
+            'product_name_product_130ml': 'first'
         }).reset_index()
         
         lama_habis = 10
-        lama_habis_zymuno130ml = 6
+        lama_habis_product130ml = 6
         # today = datetime.strptime(end_date, '%Y-%m-%d')
         today = datetime.today()
         three_months_ago = today - pd.DateOffset(months=3)
@@ -230,12 +214,12 @@ def calculate_funnel(df, product_name):
         def determine_funnel(row):
             shipment_plus_qty = timedelta(days=0)  # Inisialisasi dengan timedelta nol
         
-            # Cek jika produk zymuno ada
-            if pd.notna(row['product_name_zymuno']):
-                shipment_plus_qty += timedelta(days=row['product_qty_zymuno'] * lama_habis)
+            # Cek jika produk product ada
+            if pd.notna(row['product_name_product']):
+                shipment_plus_qty += timedelta(days=row['product_qty_product'] * lama_habis)
         
-            if pd.notna(row['product_name_zymuno_130ml']):
-                shipment_plus_qty += timedelta(days=row['product_qty_zymuno_130ml'] * lama_habis_zymuno130ml)
+            if pd.notna(row['product_name_product_130ml']):
+                shipment_plus_qty += timedelta(days=row['product_qty_product_130ml'] * lama_habis_product130ml)
         
             # Hitung tanggal pengiriman plus kuantitas
             final_shipment_date = row['last_shipment_date'] + shipment_plus_qty
@@ -252,14 +236,14 @@ def calculate_funnel(df, product_name):
             return pd.Series([funnel_status])
         
         # Terapkan fungsi ke DataFrame
-        result_zymuno[['funnel']] = result_zymuno.apply(determine_funnel, axis=1)
-        return result_zymuno
+        result_product[['funnel']] = result_product.apply(determine_funnel, axis=1)
+        return result_product
     else:
         df = df[df['given_product_name'] == product_name]
         consumption_days = {
-            'ETAWALIN': 7,
-            'NUTRIFLAKES': 5,
-            'ETAWAKU': 8
+            'PRODUCT': 7,
+            'PRODUCT': 5,
+            'PRODUCT': 8
         }
         
         # Set the consumption days for the given product
@@ -327,11 +311,11 @@ def main():
     try:
         start_time = time.time()
         mydb = connect_to_database(
-          host="arjuna.genah.net",
-          user="arjuna_read_only",
-          password="AcgK_GWB-24",
-          database="arjuna",
-          port = 33061
+          host="host",
+          user="user",
+          password="pass",
+          database="db",
+          port = 00000
         )
         mycursor = mydb.cursor()
         df = fetch_data(mycursor)
@@ -340,25 +324,25 @@ def main():
         
         rfm = calculate_rfm(df)
         
-        rfm_bio = cluster_and_classify(rfm, 'BIO INSULEAF', n_clusters=5)
-        rfm_etawalin = cluster_and_classify(rfm, 'ETAWALIN', n_clusters=5)
-        rfm_etawaku = cluster_and_classify(rfm, 'ETAWAKU', n_clusters=5)
-        rfm_nutriflakes = cluster_and_classify(rfm, 'NUTRIFLAKES', n_clusters=5)
-        rfm_zymuno = cluster_and_classify(rfm, 'ZYMUNO', n_clusters=5) 
+        rfmproduct = cluster_and_classify(rfm, 'PRODUCT', n_clusters=5)
+        rfm_product = cluster_and_classify(rfm, 'PRODUCT', n_clusters=5)
+        rfm_product = cluster_and_classify(rfm, 'PRODUCT', n_clusters=5)
+        rfm_product = cluster_and_classify(rfm, 'PRODUCT', n_clusters=5)
+        rfm_product = cluster_and_classify(rfm, 'PRODUCT', n_clusters=5) 
         
-        funnel_bio = calculate_funnel(df, 'BIO INSULEAF')[['customer_id', 'last_shipment_date', 'funnel']]
-        funnel_etawalin = calculate_funnel(rfm, 'ETAWALIN')[['customer_id', 'last_shipment_date', 'funnel']].drop_duplicates(subset = 'customer_id')
-        funnel_etawaku = calculate_funnel(rfm, 'ETAWAKU')[['customer_id', 'last_shipment_date', 'funnel']].drop_duplicates(subset = 'customer_id')
-        funnel_nutriflakes = calculate_funnel(rfm, 'NUTRIFLAKES')[['customer_id', 'last_shipment_date', 'funnel']].drop_duplicates(subset = 'customer_id')
-        funnel_zymuno = calculate_funnel(df, 'ZYMUNO')[['customer_id', 'last_shipment_date', 'funnel']]
+        funnelproduct = calculate_funnel(df, 'PRODUCT')[['customer_id', 'last_shipment_date', 'funnel']]
+        funnel_product = calculate_funnel(rfm, 'PRODUCT')[['customer_id', 'last_shipment_date', 'funnel']].drop_duplicates(subset = 'customer_id')
+        funnel_product = calculate_funnel(rfm, 'PRODUCT')[['customer_id', 'last_shipment_date', 'funnel']].drop_duplicates(subset = 'customer_id')
+        funnel_product = calculate_funnel(rfm, 'PRODUCT')[['customer_id', 'last_shipment_date', 'funnel']].drop_duplicates(subset = 'customer_id')
+        funnel_product = calculate_funnel(df, 'PRODUCT')[['customer_id', 'last_shipment_date', 'funnel']]
         
-        join_rfm_bio  = rfm_bio.merge(funnel_bio, on = ['customer_id', 'last_shipment_date'])
-        join_rfm_etawalin = rfm_etawalin.merge(funnel_etawalin, on = ['customer_id', 'last_shipment_date'])
-        join_rfm_etawaku = rfm_etawaku.merge(funnel_etawaku, on = ['customer_id', 'last_shipment_date'])
-        join_rfm_nutriflakes = rfm_nutriflakes.merge(funnel_nutriflakes, on = ['customer_id', 'last_shipment_date'])
-        join_rfm_zymuno = rfm_zymuno.merge(funnel_zymuno, on = ['customer_id', 'last_shipment_date'])
+        join_rfmproduct  = rfmproduct.merge(funnelproduct, on = ['customer_id', 'last_shipment_date'])
+        join_rfm_product = rfm_product.merge(funnel_product, on = ['customer_id', 'last_shipment_date'])
+        join_rfm_product = rfm_product.merge(funnel_product, on = ['customer_id', 'last_shipment_date'])
+        join_rfm_product = rfm_product.merge(funnel_product, on = ['customer_id', 'last_shipment_date'])
+        join_rfm_product = rfm_product.merge(funnel_product, on = ['customer_id', 'last_shipment_date'])
         
-        df_all = pd.concat([join_rfm_bio, join_rfm_etawalin, join_rfm_etawaku, join_rfm_nutriflakes, join_rfm_zymuno])
+        df_all = pd.concat([join_rfmproduct, join_rfm_product, join_rfm_product, join_rfm_product, join_rfm_product])
         df_all = repeat_order(df_all).rename(columns = {'given_product_name' : 'product_name'})
         
         df_province = df[['customer_id', 'province_id']].drop_duplicates()
@@ -371,7 +355,7 @@ def main():
         df_result = df_result[['customer_id', 'cluster', 'funnel', 'product_name', 'product_id', 'last_shipment_date',
               'product_qty', 'repeat_order', 'province_id']]  
         
-        engine = create_engine('mysql+mysqlconnector://remote:COE_Remote%4024%21@coegenah.com:33061/rfm_automation')
+        engine = create_engine('mysql+mysqlconnector://remote:db%pass%host:port/table')
         upload_to_mysql(engine, df_result)
         
         end_time = time.time()
